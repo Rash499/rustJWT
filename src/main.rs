@@ -16,6 +16,10 @@ use warp::{
 mod auth;
 mod error;
 
+type Result<T> = std::result::Result<T, error::Error>;
+type WebResult<T> = std::result::Result<T, Rejection>;
+type Users = Arc<HashMap<String, User>>;
+
 #[derive(Clone)]
 pub struct User{
     pub uid: String,
@@ -67,5 +71,54 @@ async fn main() {
 fn with_users(users: Users) -> impl Filter<Extract = (Users,), Error = Infallible> + Clone {
     warp::any().map(move || users.clone())
 }
+
+pub async fn login_handler(
+    users: Users,
+    body: Login Request,
+) -> WebResult<impl Reply>{
+    match users
+        .iter()
+        .find(|(_uid, user)| user.email == body.email && user.pw == body.pw) {
+            some((uid, user)) => {
+                let token = auth::create_token(&uid, &Role::from_str(&user.role));
+                .map_err(|e| reject::custom(e))?;
+                Ok(reply::json(&LoginResponse { token }))
+            }
+            None => {
+                Err(reject::custom(WrongCredentialsError)),
+            }
+        }
+}
+
+pub async fn user_handler(uid: String) -> WebResult<impl Reply> {
+    Ok(format!("User profile for UID: {}", uid))
+}
+
+pub async fn admin_handler(uid: String) -> WebResult<impl Reply> {
+    Ok(format!("Admin dashboard for UID: {}", uid))
+}
+
+fn init_users() -> HashMap<String, User> {
+    let mut users = HashMap::new();
+    map.insert(
+        String::from("1"),
+        User {
+            uid: String::from("1"),
+            email: String::from("rashmikadlinmin499@gmail.com"),
+            pw: String::from("password123"),
+            role: String::from("User"),
+        },
+    );
+    map.insert(
+        String::from("2"),
+        User {
+            uid: String::from("2"),
+            email: String::from("Admin@admin.com"),
+            pw: String::from("admin1234"),
+            role: String::from("Admin"),
+        },
+    );
+}
+
 
 
